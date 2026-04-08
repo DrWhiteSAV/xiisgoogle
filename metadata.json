@@ -1,0 +1,5 @@
+{
+  "name": "БывшИИ",
+  "description": "Приложение для общения с виртуальными бывшими (xiis) в стиле Telegram.",
+  "requestFramePermissions": ["microphone"]
+}
