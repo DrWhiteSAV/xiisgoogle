@@ -10,7 +10,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
     return (
       <div className="space-y-1 w-full">
         {label && (
-          <label className="text-[10px] font-bold text-tg-hint uppercase ml-1">
+          <label className="text-[10px] font-bold uppercase ml-1" style={{ color: 'var(--theme-color)' }}>
             {label}
           </label>
         )}

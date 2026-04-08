@@ -100,7 +100,7 @@ export const Profile = () => {
     { name: 'Синий', value: '#3390ec' },
     { name: 'Розовый', value: '#ff4081' },
     { name: 'Зеленый', value: '#4caf50' },
-    { name: 'Оранжевый', value: '#ff9800' },
+    { name: 'Серый', value: '#8e8e93' },
     { name: 'Фиолетовый', value: '#9c27b0' },
     { name: 'Красный', value: '#f44336' },
   ];

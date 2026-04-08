@@ -48,6 +48,49 @@
   --color-xiis-blue: var(--theme-color);
 }
 
+@utility theme-button {
+  @apply flex-1 py-3 rounded-xl border transition-all flex items-center justify-center gap-2 font-bold text-sm;
+  
+  /* Day Theme */
+  &:not(.dark *) {
+    &.active {
+      background-color: var(--theme-color);
+      border-color: var(--theme-color);
+      color: white;
+    }
+    &:not(.active) {
+      background-color: transparent;
+      border-color: var(--theme-color);
+      color: var(--theme-color);
+    }
+  }
+
+  /* Night Theme */
+  .dark & {
+    &.active {
+      background-color: transparent;
+      border-color: var(--theme-color);
+      color: var(--theme-color);
+    }
+    &:not(.active) {
+      background-color: transparent;
+      border-color: rgba(255, 255, 255, 0.1);
+      color: white;
+    }
+  }
+}
+
+@keyframes breathing {
+  0%, 100% { transform: scale(1); opacity: 0.9; }
+  50% { transform: scale(1.05); opacity: 1; }
+}
+
+@utility logo-glow {
+  animation: breathing 4s ease-in-out infinite;
+  box-shadow: 0 0 40px 10px var(--tg-glass-shadow);
+  transition: box-shadow 0.3s ease;
+}
+
 body {
   background-color: var(--color-tg-bg);
   color: var(--color-tg-text);

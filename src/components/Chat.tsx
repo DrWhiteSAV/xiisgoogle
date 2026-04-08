@@ -250,7 +250,7 @@ export const ChatWindow = ({ chatId, onBack }: { chatId: string, onBack?: () => 
         }
 
         if (consecutiveXiiCount < 3) {
-          const responseText = await generateXiiResponse(xii, allMessages, inputText);
+          const responseText = await generateXiiResponse(xii, allMessages, inputText, currentUser);
           const xiiMsg: Message = {
             id: (Date.now() + 1).toString(),
             senderId: xii.id,
@@ -266,8 +266,8 @@ export const ChatWindow = ({ chatId, onBack }: { chatId: string, onBack?: () => 
       if (mentioned) {
         const handle = inputText.split('@')[1]?.split(' ')[0];
         const xii = xiis.find(x => x.username === handle);
-        if (xii && !xii.isBanned) {
-           const responseText = await generateXiiResponse(xii, messages[chatId] || [], inputText);
+        if (xii && !xii.isBanned && currentUser) {
+           const responseText = await generateXiiResponse(xii, messages[chatId] || [], inputText, currentUser);
            const xiiMsg: Message = {
             id: (Date.now() + 1).toString(),
             senderId: xii.id,

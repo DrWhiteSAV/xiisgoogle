@@ -11,7 +11,7 @@ export const GlassCard = ({ children, className, title }: GlassCardProps) => {
   return (
     <section className={cn("space-y-3", className)}>
       {title && (
-        <h3 className="text-[10px] font-bold text-tg-light-blue uppercase tracking-widest mb-2 px-4 opacity-80">
+        <h3 className="text-[10px] font-bold uppercase tracking-widest mb-2 px-4 opacity-80" style={{ color: 'var(--theme-color)' }}>
           {title}
         </h3>
       )}

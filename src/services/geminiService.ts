@@ -1,17 +1,18 @@
 import { GoogleGenAI } from "@google/genai";
-import { Xii, Message } from "../types/index";
+import { Xii, Message, User } from "../types/index";
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 export async function generateXiiResponse(
   xii: Xii,
   chatHistory: Message[],
-  userMessage: string
+  userMessage: string,
+  currentUser: User
 ): Promise<string> {
   // Last 5 messages from both self and user
   const lastMessages = chatHistory.slice(-5);
   const historyText = lastMessages
-    .map((m) => `${m.senderId === xii.id ? xii.firstName : "User"}: ${m.text}`)
+    .map((m) => `${m.senderId === xii.id ? xii.firstName : currentUser.firstName}: ${m.text}`)
     .join("\n");
 
   const prompt = `
@@ -26,6 +27,11 @@ export async function generateXiiResponse(
     ${xii.relatives ? `Your relatives: ${xii.relatives}` : ""}
     ${xii.friends ? `Your friends: ${xii.friends}` : ""}
     ${xii.habits ? `Your habits: ${xii.habits}` : ""}
+
+    Information about the User you are talking to:
+    Name: ${currentUser.firstName}
+    Gender: ${currentUser.gender}
+    About User: ${currentUser.description || "No additional info provided."}
 
     User message: "${userMessage}"
     Recent history (last 5 messages):

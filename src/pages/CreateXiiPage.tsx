@@ -75,23 +75,25 @@ export const CreateXii = () => {
             </div>
             
             <div className="flex flex-col items-center gap-4 w-full">
-              <div className="flex gap-2 p-1 rounded-xl input-glass">
-                <Button 
-                  variant={gender === 'male' ? 'primary' : 'secondary'}
-                  size="sm"
+              <div className="flex gap-2 p-1 rounded-xl input-glass w-full max-w-md">
+                <button 
                   onClick={() => { setGender('male'); setAvatar(STOCK_AVATARS_MALE[0]); }}
-                  className={cn("px-6 py-2 rounded-lg text-sm font-bold transition-all", gender === 'male' ? "shadow-md" : "")}
+                  className={cn(
+                    "theme-button",
+                    gender === 'male' && "active"
+                  )}
                 >
                   Мужчина
-                </Button>
-                <Button 
-                  variant={gender === 'female' ? 'primary' : 'secondary'}
-                  size="sm"
+                </button>
+                <button 
                   onClick={() => { setGender('female'); setAvatar(STOCK_AVATARS_FEMALE[0]); }}
-                  className={cn("px-6 py-2 rounded-lg text-sm font-bold transition-all", gender === 'female' ? "shadow-md" : "")}
+                  className={cn(
+                    "theme-button",
+                    gender === 'female' && "active"
+                  )}
                 >
                   Женщина
-                </Button>
+                </button>
               </div>
 
               <div className="grid grid-cols-5 gap-3 w-full max-w-md">

@@ -31,10 +31,11 @@ export const useChatSimulation = () => {
       const chatId = `private-${randomXii.id}`;
       
       const randomMsg = STANDARD_XII_MESSAGES[Math.floor(Math.random() * STANDARD_XII_MESSAGES.length)];
+      const processedMsg = randomMsg.replace(/{name}/g, currentUser.firstName);
       const xiiMsg: Message = {
         id: `online-${Date.now()}`,
         senderId: randomXii.id,
-        text: randomMsg,
+        text: processedMsg,
         timestamp: Date.now(),
       };
       addMessage(chatId, xiiMsg);
@@ -63,7 +64,7 @@ export const useChatSimulation = () => {
 
       if (consecutiveXiiCount < 3) {
         const sendXiiMsg = async () => {
-          const responseText = await generateXiiResponse(randomXii, chatMessages, "Почему молчишь?");
+          const responseText = await generateXiiResponse(randomXii, chatMessages, "Почему молчишь?", currentUser);
           const xiiMsg: Message = {
             id: `ping-${Date.now()}`,
             senderId: randomXii.id,

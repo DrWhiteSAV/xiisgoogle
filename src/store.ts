@@ -30,7 +30,7 @@ export const useStore = create<Store>()(
       themeColor: '#3390ec', // Default Telegram blue
       blurIntensity: 10, // Default blur
       bgBlurIntensity: 2, // Default background blur
-      bgIcons: ['Heart', 'MessageSquare', 'Zap', 'Star', 'Smile', 'Music', 'Camera', 'Coffee'],
+      bgIcons: ['HeartCrack'],
       currentView: 'chats',
       selectedXiiId: null,
       chats: [
@@ -71,10 +71,11 @@ export const useStore = create<Store>()(
         
         // Immediate first message from Xii
         const randomMsg = STANDARD_XII_MESSAGES[Math.floor(Math.random() * STANDARD_XII_MESSAGES.length)];
+        const processedMsg = randomMsg.replace(/{name}/g, state.currentUser?.firstName || 'друг');
         const firstMsg: Message = {
           id: `first-${xii.id}`,
           senderId: xii.id,
-          text: randomMsg,
+          text: processedMsg,
           timestamp: Date.now(),
         };
 

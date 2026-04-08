@@ -7,33 +7,35 @@ import { Button } from './ui/Button';
 import { Sun, Moon, Check } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { GlassCard } from './ui/GlassCard';
+import { motion } from 'motion/react';
 
 export const Onboarding = () => {
   const { setCurrentUser, theme, setTheme, themeColor, setThemeColor } = useStore();
   const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
-  const [gender, setGender] = useState<Gender>('male');
+  const [description, setDescription] = useState('');
+  const [gender, setGender] = useState<Gender | null>(null);
 
   const themeColors = [
     { name: 'Синий', value: '#3390ec' },
     { name: 'Розовый', value: '#ff4081' },
     { name: 'Зеленый', value: '#4caf50' },
-    { name: 'Оранжевый', value: '#ff9800' },
+    { name: 'Серый', value: '#8e8e93' },
     { name: 'Фиолетовый', value: '#9c27b0' },
     { name: 'Красный', value: '#f44336' },
   ];
 
-  const canStart = firstName.trim() && lastName.trim();
+  const canStart = firstName.trim() && gender !== null;
 
   const handleStart = () => {
-    if (!firstName || !lastName) return;
+    if (!firstName || !gender) return;
     setCurrentUser({
       id: 'user-1',
       firstName,
-      lastName,
+      lastName: '',
       username: firstName.toLowerCase(),
       gender,
       avatar: gender === 'male' ? '👨' : '👩',
+      description: description.trim() || undefined,
     });
   };
 
@@ -41,12 +43,20 @@ export const Onboarding = () => {
     <div className="fixed inset-0 bg-transparent z-50 flex flex-col items-center justify-start py-8 px-6 text-center overflow-y-auto">
       <BackgroundPattern />
       
-      <div className="mb-4 relative shrink-0">
-        <img src="https://i.ibb.co/8DVMSjvq/xiislogofull.png" alt="Logo" className="w-24 h-24 relative z-10 rounded-2xl object-contain" referrerPolicy="no-referrer" />
-        <div className="absolute inset-0 bg-tg-light-blue/20 blur-3xl rounded-full scale-150"></div>
+      <div className="mb-8 relative shrink-0">
+        <motion.img 
+          initial={{ scale: 0.8, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ duration: 0.8, ease: "easeOut" }}
+          src="https://i.ibb.co/8DVMSjvq/xiislogofull.png" 
+          alt="Logo" 
+          className="w-48 h-48 rounded-[2.5rem] object-contain logo-glow relative z-10" 
+          referrerPolicy="no-referrer" 
+        />
+        <div className="absolute inset-0 bg-tg-light-blue/20 blur-3xl rounded-full scale-150 animate-pulse"></div>
       </div>
       
-      <p className="text-tg-hint mb-6 max-w-xs text-sm">Ваш персональный симулятор общения с виртуальными бывшими.</p>
+      <p className="mb-6 max-w-xs text-sm font-bold" style={{ color: themeColor }}>Ваш персональный симулятор общения с виртуальными бывшими.</p>
       
       <div className="w-full max-w-sm space-y-4 pb-10">
         <GlassCard>
@@ -57,42 +67,70 @@ export const Onboarding = () => {
               value={firstName}
               onChange={e => setFirstName(e.target.value)}
             />
-            <Input 
-              label="Фамилия"
-              placeholder="Фамилия"
-              value={lastName}
-              onChange={e => setLastName(e.target.value)}
-            />
+            
+            <div className="space-y-1 w-full text-left">
+              <label className="text-[10px] font-bold uppercase ml-1" style={{ color: 'var(--theme-color)' }}>
+                Ваш пол
+              </label>
+              <div className="flex gap-4">
+                <button 
+                  onClick={() => setGender('male')}
+                  className={cn(
+                    "theme-button py-4 rounded-2xl",
+                    gender === 'male' && "active"
+                  )}
+                >
+                  Мужчина
+                </button>
+                <button 
+                  onClick={() => setGender('female')}
+                  className={cn(
+                    "theme-button py-4 rounded-2xl",
+                    gender === 'female' && "active"
+                  )}
+                >
+                  Женщина
+                </button>
+              </div>
+            </div>
+
+            <div className="space-y-1 w-full text-left">
+              <label className="text-[10px] font-bold uppercase ml-1" style={{ color: 'var(--theme-color)' }}>
+                О себе (необязательно)
+              </label>
+              <textarea
+                placeholder="Расскажите немного о себе..."
+                className="w-full p-3 rounded-xl outline-none border-2 border-transparent focus:border-tg-light-blue text-tg-text input-glass transition-all resize-none h-24 text-sm"
+                value={description}
+                onChange={e => setDescription(e.target.value)}
+              />
+            </div>
           </div>
         </GlassCard>
 
         <GlassCard title="Настройки темы">
           <div className="space-y-6">
             <div className="flex gap-4">
-              <Button 
+              <button 
                 onClick={() => setTheme('light')}
-                variant={theme === 'light' ? 'primary' : 'secondary'}
                 className={cn(
-                  "flex-1 py-3 rounded-xl border-2 transition-all flex items-center justify-center gap-2 font-bold",
-                  theme === 'light' ? "border-tg-light-blue" : "border-transparent"
+                  "theme-button",
+                  theme === 'light' && "active"
                 )}
-                style={theme === 'light' ? { backgroundColor: `${themeColor}1a`, color: themeColor } : {}}
               >
                 <Sun size={18} />
                 Дневная
-              </Button>
-              <Button 
+              </button>
+              <button 
                 onClick={() => setTheme('dark')}
-                variant={theme === 'dark' ? 'primary' : 'secondary'}
                 className={cn(
-                  "flex-1 py-3 rounded-xl border-2 transition-all flex items-center justify-center gap-2 font-bold",
-                  theme === 'dark' ? "border-tg-light-blue" : "border-transparent"
+                  "theme-button",
+                  theme === 'dark' && "active"
                 )}
-                style={theme === 'dark' ? { backgroundColor: `${themeColor}1a`, color: themeColor } : {}}
               >
                 <Moon size={18} />
                 Ночная
-              </Button>
+              </button>
             </div>
 
             <div className="flex flex-wrap justify-center gap-3">
@@ -112,33 +150,6 @@ export const Onboarding = () => {
                 </div>
               ))}
             </div>
-          </div>
-        </GlassCard>
-        
-        <GlassCard title="Ваш пол">
-          <div className="flex gap-4">
-            <Button 
-              onClick={() => setGender('male')}
-              className={cn(
-                "flex-1 py-4 rounded-2xl border-2 transition-all font-bold",
-                gender === 'male' 
-                  ? "border-[#3390ec] bg-[#3390ec] text-white shadow-lg shadow-blue-500/20" 
-                  : "border-transparent bg-gray-100 dark:bg-gray-800 text-tg-hint"
-              )}
-            >
-              Мужчина
-            </Button>
-            <Button 
-              onClick={() => setGender('female')}
-              className={cn(
-                "flex-1 py-4 rounded-2xl border-2 transition-all font-bold",
-                gender === 'female' 
-                  ? "border-[#ff4081] bg-[#ff4081] text-white shadow-lg shadow-pink-500/20" 
-                  : "border-transparent bg-gray-100 dark:bg-gray-800 text-tg-hint"
-              )}
-            >
-              Женщина
-            </Button>
           </div>
         </GlassCard>
 

@@ -35,7 +35,7 @@ export const ChatSettings = () => {
     { name: 'Синий', value: '#3390ec' },
     { name: 'Розовый', value: '#ff4081' },
     { name: 'Зеленый', value: '#4caf50' },
-    { name: 'Оранжевый', value: '#ff9800' },
+    { name: 'Серый', value: '#8e8e93' },
     { name: 'Фиолетовый', value: '#9c27b0' },
     { name: 'Красный', value: '#f44336' },
     { name: 'Голубой', value: '#00bcd4' },
@@ -55,19 +55,17 @@ export const ChatSettings = () => {
         <GlassCard title="Цветовая тема">
           <div className="grid grid-cols-2 gap-3">
             {themes.map((t) => (
-              <div 
+              <button 
                 key={t.id}
                 onClick={() => setTheme(t.id as any)}
                 className={cn(
-                  "flex flex-col items-center gap-2 p-4 rounded-2xl cursor-pointer transition-all border-2",
-                  theme === t.id 
-                    ? "border-tg-light-blue bg-tg-light-blue/10" 
-                    : "border-transparent bg-gray-100/50 dark:bg-gray-800/50 hover:bg-gray-200/50 dark:hover:bg-gray-700/50"
+                  "theme-button h-auto flex-col p-4",
+                  theme === t.id && "active"
                 )}
               >
-                <t.icon size={24} className={theme === t.id ? "text-tg-light-blue" : "text-tg-hint"} />
+                <t.icon size={24} />
                 <span className="text-sm font-medium">{t.name}</span>
-              </div>
+              </button>
             ))}
           </div>
         </GlassCard>
