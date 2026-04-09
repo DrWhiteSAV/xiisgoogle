@@ -29,6 +29,7 @@ export interface Xii extends User {
   muteNightSms?: boolean;
   spamReason?: string;
   lastOnlinePing?: number;
+  previousGroups?: string[]; // To restore group membership after unbanning
 }
 
 export interface Message {

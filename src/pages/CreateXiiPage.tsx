@@ -49,7 +49,8 @@ export const CreateXii = () => {
   const handleCreate = () => {
     if (!firstName || !currentUser) return;
 
-    const username = transliterate(firstName);
+    const baseUsername = transliterate(firstName);
+    const username = `${baseUsername}_xiis`;
 
     const newXii: Xii = {
       id: `xii-${Date.now()}`,

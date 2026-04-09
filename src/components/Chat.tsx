@@ -11,6 +11,8 @@ import { Header } from './ui/Header';
 import { Button } from './ui/Button';
 import { Input } from './ui/Input';
 
+import { AnimatedText } from './AnimatedText';
+
 export const ChatList = ({ onSelectChat, activeChatId }: { onSelectChat: (id: string) => void, activeChatId?: string }) => {
   const { chats, xiis, createGroupChat } = useStore();
   const navigate = useNavigate();
@@ -146,6 +148,80 @@ export const ChatWindow = ({ chatId, onBack }: { chatId: string, onBack?: () => 
   const [typingXii, setTypingXii] = useState<string | null>(null); // Name of Xii typing
   const [streamingMessageId, setStreamingMessageId] = useState<string | null>(null);
   const [streamingText, setStreamingText] = useState<Record<string, string>>({});
+  const [isReviving, setIsReviving] = useState(false);
+  const [revivedChats, setRevivedChats] = useState<Record<string, boolean>>({});
+
+  const triggerXiiResponse = async (target: Xii, triggerMsg: Message, input: string) => {
+    if (!currentUser) return;
+    setTypingXii(target.firstName);
+    try {
+      const responseText = await generateXiiResponse(target, messages[chatId] || [], input, currentUser, xiis, triggerMsg);
+      setTypingXii(null);
+
+      const xiiMsgId = (Date.now() + Math.random()).toString();
+      const sender = xiis.find(x => x.id === triggerMsg.senderId) || (triggerMsg.senderId === currentUser.id ? currentUser : null);
+      
+      const xiiMsg: Message = {
+        id: xiiMsgId,
+        senderId: target.id,
+        text: '', // Start empty for streaming
+        timestamp: Date.now(),
+        replyToId: triggerMsg.id,
+        replyToName: sender?.firstName || 'User'
+      };
+
+      addMessage(chatId, xiiMsg);
+      setStreamingMessageId(xiiMsgId);
+      
+      // Stream the text
+      let currentText = '';
+      const chars = Array.from(responseText);
+      for (let i = 0; i < chars.length; i++) {
+        currentText += chars[i];
+        setStreamingText(prev => ({ ...prev, [xiiMsgId]: currentText }));
+        await new Promise(resolve => setTimeout(resolve, 50));
+      }
+      
+      // Finalize message in store
+      useStore.getState().updateMessageText(chatId, xiiMsgId, responseText);
+      setStreamingMessageId(null);
+      setStreamingText(prev => {
+        const next = { ...prev };
+        delete next[xiiMsgId];
+        return next;
+      });
+    } catch (error) {
+      setTypingXii(null);
+      console.error("Xii response error:", error);
+    }
+  };
+
+  const handleReviveChat = async () => {
+    if (isReviving || revivedChats[chatId] || chat?.type !== 'group') return;
+    
+    setIsReviving(true);
+    
+    const groupXiis = xiis.filter(x => chat.participants.includes(x.id) && !x.isBanned);
+    
+    try {
+      for (let round = 0; round < 2; round++) {
+        for (const xii of groupXiis) {
+          const currentMessages = useStore.getState().messages[chatId] || [];
+          const lastMsg = currentMessages[currentMessages.length - 1];
+          if (!lastMsg) continue;
+
+          await triggerXiiResponse(xii, lastMsg, lastMsg.text);
+          // Small delay between different xiis starting to type
+          await new Promise(resolve => setTimeout(resolve, 1500));
+        }
+      }
+      setRevivedChats(prev => ({ ...prev, [chatId]: true }));
+    } catch (error) {
+      console.error("Revive chat error:", error);
+    } finally {
+      setIsReviving(false);
+    }
+  };
 
   // Click outside to clear active message
   useEffect(() => {
@@ -246,54 +322,7 @@ export const ChatWindow = ({ chatId, onBack }: { chatId: string, onBack?: () => 
     addMessage(chatId, userMsg);
     setInputText('');
     setReplyingTo(null);
-
-    const handleXiiResponse = async (target: any, isMention: boolean = false) => {
-      setTypingXii(target.firstName);
-      try {
-        const responseText = await generateXiiResponse(target, messages[chatId] || [], currentInput, currentUser, xiis, currentReplyTo || undefined);
-        setTypingXii(null);
-
-        let replyToName = '';
-        if (isMention || currentReplyTo) {
-          const replier = xiis.find(x => x.id === currentReplyTo?.senderId) || (currentReplyTo?.senderId === currentUser.id ? currentUser : null);
-          replyToName = replier?.firstName || (isMention ? currentUser.firstName : '');
-        }
-
-        const xiiMsgId = (Date.now() + 1).toString();
-        const xiiMsg: Message = {
-          id: xiiMsgId,
-          senderId: target.id,
-          text: '', // Start empty for streaming
-          timestamp: Date.now(),
-          replyToId: currentReplyTo?.id || (isMention ? userMsg.id : undefined),
-          replyToName: replyToName || undefined
-        };
-
-        addMessage(chatId, xiiMsg);
-        setStreamingMessageId(xiiMsgId);
-        
-        // Stream the text
-        let currentText = '';
-        const chars = Array.from(responseText);
-        for (let i = 0; i < chars.length; i++) {
-          currentText += chars[i];
-          setStreamingText(prev => ({ ...prev, [xiiMsgId]: currentText }));
-          await new Promise(resolve => setTimeout(resolve, 50)); // 20 chars per second (1000ms / 20 = 50ms)
-        }
-        
-        // Finalize message in store
-        useStore.getState().updateMessageText(chatId, xiiMsgId, responseText);
-        setStreamingMessageId(null);
-        setStreamingText(prev => {
-          const next = { ...prev };
-          delete next[xiiMsgId];
-          return next;
-        });
-      } catch (error) {
-        setTypingXii(null);
-        console.error("Xii response error:", error);
-      }
-    };
+    setShowEmoji(false);
 
     // Logic for Xii response
     if (chat?.type === 'private') {
@@ -312,7 +341,7 @@ export const ChatWindow = ({ chatId, onBack }: { chatId: string, onBack?: () => 
         }
 
         if (consecutiveXiiCount < 3) {
-          setTimeout(() => handleXiiResponse(xii), 1000);
+          setTimeout(() => triggerXiiResponse(xii, userMsg, currentInput), 1000);
         }
       }
     } else if (chat?.type === 'group') {
@@ -329,7 +358,7 @@ export const ChatWindow = ({ chatId, onBack }: { chatId: string, onBack?: () => 
       }
 
       if (targetXii && !targetXii.isBanned && currentUser) {
-        setTimeout(() => handleXiiResponse(targetXii, mentioned), 1500);
+        setTimeout(() => triggerXiiResponse(targetXii, userMsg, currentInput), 1500);
       }
     } else if (chat?.type === 'channel') {
       // AI Moderation for the Wall (Стенка)
@@ -432,6 +461,21 @@ export const ChatWindow = ({ chatId, onBack }: { chatId: string, onBack?: () => 
         >
           <Search size={20} className={showSearch ? "text-tg-light-blue" : "text-tg-hint"} />
         </div>
+
+        {/* Block 5: Revive Chat (Groups only) */}
+        {chat.type === 'group' && (
+          <div 
+            onClick={handleReviveChat}
+            className={cn(
+              "glass-effect rounded-2xl px-3 py-2 shadow-lg pointer-events-auto cursor-pointer flex items-center gap-2 h-11 transition-all",
+              isReviving ? "animate-pulse ring-2 ring-tg-light-blue" : "opacity-80 hover:opacity-100",
+              (isReviving || revivedChats[chatId]) && "cursor-not-allowed opacity-40"
+            )}
+          >
+            <MessageSquare size={16} className={cn("text-tg-light-blue", isReviving && "animate-bounce")} />
+            <span className="text-[10px] font-bold whitespace-nowrap">Оживить чат</span>
+          </div>
+        )}
       </div>
 
       {/* Search Bar below Header Blocks */}
@@ -471,6 +515,18 @@ export const ChatWindow = ({ chatId, onBack }: { chatId: string, onBack?: () => 
           const isChannel = chat.type === 'channel';
           const sender = xiis.find(x => x.id === msg.senderId);
           const isActive = activeMessageId === msg.id;
+
+          // Check if message is a single emoji
+          const isSingleEmoji = (() => {
+            const text = msg.text.trim();
+            if (!text) return false;
+            // Robust emoji detection including modifiers
+            const emojiRegex = /(\u00a9|\u00ae|[\u2000-\u3300]|\ud83c[\ud000-\udfff]|\ud83d[\ud000-\udfff]|\ud83e[\ud000-\udfff])/g;
+            const matches = text.match(emojiRegex);
+            // If it's just one emoji (even with modifiers like skin tone which might show as multiple matches in simple regex)
+            // but for simplicity we check if the whole string is just emojis and there's only one "base" emoji
+            return matches && matches.length === 1 && matches[0].length === text.length;
+          })();
           
           const handleProfileClick = () => {
             if (sender) {
@@ -499,7 +555,8 @@ export const ChatWindow = ({ chatId, onBack }: { chatId: string, onBack?: () => 
                     "p-3 rounded-2xl shadow-sm relative group message-bubble transition-all duration-200 min-w-0",
                     isOwn ? "message-bubble-own rounded-tr-none" : "message-bubble-other rounded-tl-none",
                     isChannel ? "channel-post" : "private-chat-bubble",
-                    isOwn && !isChannel ? "max-w-[85%]" : "max-w-[calc(100%-37px)]"
+                    isOwn && !isChannel ? "max-w-[85%]" : "max-w-[calc(100%-37px)]",
+                    isSingleEmoji && "bg-transparent shadow-none backdrop-blur-0 border-none !p-1"
                   )}
                 >
                   {!isOwn && chat.type !== 'private' && (
@@ -520,7 +577,7 @@ export const ChatWindow = ({ chatId, onBack }: { chatId: string, onBack?: () => 
                   {replyToMsg && (
                     <div className="mb-2 p-2 bg-black/5 dark:bg-white/5 border-l-2 border-tg-light-blue rounded text-xs opacity-80 w-full overflow-hidden min-w-0">
                       <div className="font-bold text-[10px] text-tg-light-blue truncate">
-                        {xiis.find(x => x.id === replyToMsg.senderId)?.firstName || (replyToMsg.senderId === currentUser?.id ? 'Вы' : 'Xii')}
+                        {xiis.find(x => x.id === replyToMsg.senderId)?.firstName || (replyToMsg.senderId === currentUser?.id ? currentUser.firstName : 'Xii')}
                       </div>
                       <div className="truncate w-full">{replyToMsg.text}</div>
                     </div>
@@ -532,11 +589,20 @@ export const ChatWindow = ({ chatId, onBack }: { chatId: string, onBack?: () => 
                     </div>
                   )}
 
-                  <p className="text-sm pr-12 whitespace-pre-wrap break-words">
-                    {streamingText[msg.id] !== undefined ? streamingText[msg.id] : msg.text}
+                  <p className={cn(
+                    "text-sm pr-12 whitespace-pre-wrap break-words",
+                    isSingleEmoji && "text-5xl pr-0"
+                  )}>
+                    <AnimatedText 
+                      text={streamingText[msg.id] !== undefined ? streamingText[msg.id] : msg.text} 
+                      isLarge={isSingleEmoji}
+                    />
                     {streamingMessageId === msg.id && <span className="inline-block w-1.5 h-4 ml-0.5 bg-tg-light-blue animate-pulse align-middle" />}
                   </p>
-                  <div className="flex items-center gap-1 absolute bottom-1 right-2">
+                  <div className={cn(
+                    "flex items-center gap-1 absolute bottom-1 right-2",
+                    isSingleEmoji && "-bottom-4 right-0"
+                  )}>
                     <span className="text-[9px] opacity-60">
                       {format(msg.timestamp, 'HH:mm')}
                     </span>

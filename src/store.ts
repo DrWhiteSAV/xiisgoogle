@@ -115,11 +115,28 @@ export const useStore = create<Store>()(
       }),
 
       updateXii: (xiiId, updates) => set((state) => {
+        const xii = state.xiis.find(x => x.id === xiiId);
+        if (!xii) return state;
+
         const updatedXiis = state.xiis.map(x => x.id === xiiId ? { ...x, ...updates } : x);
-        
-        // If banned, remove from all group chats
         let updatedChats = state.chats;
-        if (updates.isBanned) {
+
+        // If banning
+        if (updates.isBanned === true && !xii.isBanned) {
+          const currentGroups = state.chats
+            .filter(chat => chat.type === 'group' && chat.participants.includes(xiiId))
+            .map(chat => chat.id);
+          
+          // Update xii with previous groups and mute them
+          updatedXiis.forEach(x => {
+            if (x.id === xiiId) {
+              x.previousGroups = currentGroups;
+              x.isMuted = true;
+              x.muteNightSms = true;
+            }
+          });
+
+          // Remove from chats
           updatedChats = state.chats.map(chat => {
             if (chat.type === 'group' && chat.participants.includes(xiiId)) {
               return {
@@ -128,6 +145,29 @@ export const useStore = create<Store>()(
               };
             }
             return chat;
+          });
+        } 
+        // If unbanning
+        else if (updates.isBanned === false && xii.isBanned) {
+          const groupsToRestore = xii.previousGroups || [];
+          
+          updatedChats = state.chats.map(chat => {
+            if (groupsToRestore.includes(chat.id)) {
+              return {
+                ...chat,
+                participants: chat.participants.includes(xiiId) 
+                  ? chat.participants 
+                  : [...chat.participants, xiiId]
+              };
+            }
+            return chat;
+          });
+
+          // Clear previous groups
+          updatedXiis.forEach(x => {
+            if (x.id === xiiId) {
+              x.previousGroups = [];
+            }
           });
         }
 
