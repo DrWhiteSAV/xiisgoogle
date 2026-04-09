@@ -26,8 +26,9 @@ export interface Xii extends User {
   habits?: string;
   isMuted?: boolean;
   isBanned?: boolean;
-  muteDuringDay?: boolean;
+  muteNightSms?: boolean;
   spamReason?: string;
+  lastOnlinePing?: number;
 }
 
 export interface Message {
@@ -39,6 +40,7 @@ export interface Message {
   replyToId?: string;
   forwardedFromId?: string;
   authorName?: string; // For channel posts
+  replyToName?: string; // For AI responses indicating who they are replying to
 }
 
 export interface Chat {
@@ -52,6 +54,21 @@ export interface Chat {
   unreadCount: number;
 }
 
+export interface BgDeviceSettings {
+  cols: number;
+  rows: number;
+  minSize: number;
+  maxSize: number;
+}
+
+export interface BgSettings {
+  pc: BgDeviceSettings;
+  tabletPortrait: BgDeviceSettings;
+  tabletLandscape: BgDeviceSettings;
+  mobilePortrait: BgDeviceSettings;
+  mobileLandscape: BgDeviceSettings;
+}
+
 export interface AppState {
   currentUser: User | null;
   xiis: Xii[];
@@ -62,5 +79,8 @@ export interface AppState {
   blurIntensity: number;
   bgBlurIntensity: number;
   bgIcons: string[];
+  bgSettings: BgSettings;
   currentView: View;
+  glassOpacity: number;
+  glassMix: number;
 }

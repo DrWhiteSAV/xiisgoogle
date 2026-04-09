@@ -1,19 +1,25 @@
 @import "tailwindcss";
 
+*, ::before, ::after {
+  box-sizing: border-box;
+}
+
 :root {
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --theme-color: #2196f3;
-  --blur-intensity: 20px;
-  --bg-blur-intensity: 2px;
+  --blur-intensity: 0px;
+  --bg-blur-intensity: 0px;
+  --glass-opacity: 10%;
+  --glass-mix: 10%;
   
   /* Light Theme Defaults */
   --tg-bg: #ffffff;
   --tg-text: #222222;
   --tg-hint: #999999;
-  --tg-glass-bg: color-mix(in srgb, color-mix(in srgb, var(--theme-color), white 10%), transparent 90%);
+  --tg-glass-bg: color-mix(in srgb, color-mix(in srgb, var(--theme-color), white var(--glass-mix)), transparent calc(100% - var(--glass-opacity)));
   --tg-glass-border: color-mix(in srgb, var(--theme-color), transparent 80%);
   --tg-glass-shadow: color-mix(in srgb, var(--theme-color), transparent 50%);
-  --tg-input-bg: rgba(255, 255, 255, 0.1);
+  --tg-input-bg: var(--tg-glass-bg);
   
   /* Background Pattern Variables */
   --bg-radial-start: color-mix(in srgb, var(--theme-color), transparent 90%);
@@ -26,10 +32,10 @@
   --tg-bg: #1c1c1c;
   --tg-text: #ffffff;
   --tg-hint: #aaaaaa;
-  --tg-glass-bg: color-mix(in srgb, color-mix(in srgb, var(--theme-color), white 10%), transparent 90%);
+  --tg-glass-bg: color-mix(in srgb, color-mix(in srgb, var(--theme-color), white var(--glass-mix)), transparent calc(100% - var(--glass-opacity)));
   --tg-glass-border: color-mix(in srgb, var(--theme-color), transparent 80%);
   --tg-glass-shadow: color-mix(in srgb, var(--theme-color), transparent 50%);
-  --tg-input-bg: rgba(255, 255, 255, 0.05);
+  --tg-input-bg: var(--tg-glass-bg);
 
   /* Background Pattern Variables (Dark) */
   --bg-radial-start: color-mix(in srgb, var(--theme-color), transparent 100%);
@@ -49,34 +55,19 @@
 }
 
 @utility theme-button {
-  @apply flex-1 py-3 rounded-xl border transition-all flex items-center justify-center gap-2 font-bold text-sm;
+  @apply flex-1 py-3 rounded-xl border transition-all flex items-center justify-center gap-2 font-bold text-sm glass-effect;
   
-  /* Day Theme */
-  &:not(.dark *) {
-    &.active {
-      background-color: var(--theme-color);
-      border-color: var(--theme-color);
-      color: white;
-    }
-    &:not(.active) {
-      background-color: transparent;
-      border-color: var(--theme-color);
-      color: var(--theme-color);
-    }
+  &.active {
+    background-color: var(--theme-color) !important;
+    border-color: var(--theme-color) !important;
+    color: white !important;
+    box-shadow: 0 4px 12px var(--tg-glass-shadow);
   }
 
-  /* Night Theme */
-  .dark & {
-    &.active {
-      background-color: transparent;
-      border-color: var(--theme-color);
-      color: var(--theme-color);
-    }
-    &:not(.active) {
-      background-color: transparent;
-      border-color: rgba(255, 255, 255, 0.1);
-      color: white;
-    }
+  &:not(.active) {
+    background-color: var(--tg-glass-bg) !important;
+    border-color: var(--tg-glass-border) !important;
+    color: var(--tg-text) !important;
   }
 }
 
@@ -87,8 +78,10 @@
 
 @utility logo-glow {
   animation: breathing 4s ease-in-out infinite;
-  box-shadow: 0 0 40px 10px var(--tg-glass-shadow);
-  transition: box-shadow 0.3s ease;
+  filter: drop-shadow(0 0 10px var(--theme-color)) 
+          drop-shadow(0 0 25px rgba(var(--theme-color-rgb), 0.5))
+          drop-shadow(0 0 45px rgba(var(--theme-color-rgb), 0.2));
+  transition: filter 0.3s ease;
 }
 
 body {
@@ -120,7 +113,6 @@ body {
 .tg-chat-bg {
   background-size: cover;
   background-position: center;
-  background-attachment: fixed;
 }
 
 .dark .tg-chat-bg {
@@ -142,7 +134,7 @@ body {
 
 @utility radial-round {
   @apply glass-effect;
-  border-radius: 2.5rem !important;
+  border-radius: 2.5rem;
 }
 
 .chat-list-bg {
@@ -174,39 +166,24 @@ body {
 @utility message-bubble {
   @apply glass-effect rounded-2xl;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
-  background: rgba(255, 255, 255, 0.1) !important;
-  
-  .dark & {
-    background: rgba(255, 255, 255, 0.01) !important;
-  }
+  background: var(--tg-glass-bg) !important;
 }
 
 .message-bubble-own {
-  background: rgba(255, 255, 255, 0.2) !important;
-  
-  .dark & {
-    background: rgba(255, 255, 255, 0.05) !important;
-  }
+  background: var(--tg-glass-bg) !important;
 }
 
 .message-bubble-other {
-  background: rgba(255, 255, 255, 0.1) !important;
-  
-  .dark & {
-    background: rgba(255, 255, 255, 0.02) !important;
-  }
+  background: var(--tg-glass-bg) !important;
 }
 
 .private-chat-bubble {
-  max-width: 85% !important;
 }
 
 .channel-post {
-  max-width: 85% !important;
-  width: 85% !important;
-  border-radius: 1.5rem !important;
-  margin-left: 0 !important;
-  margin-right: 0 !important;
+  border-radius: 1.5rem;
+  margin-left: 0;
+  margin-right: 0;
 }
 
 @utility input-glass {

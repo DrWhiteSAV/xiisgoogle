@@ -3,7 +3,7 @@ import * as LucideIcons from 'lucide-react';
 import { useMemo, useState, useEffect } from 'react';
 
 export const BackgroundPattern = () => {
-  const { theme, themeColor, bgBlurIntensity, bgIcons } = useStore();
+  const { theme, themeColor, bgBlurIntensity, bgIcons, bgSettings } = useStore();
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
 
   useEffect(() => {
@@ -19,48 +19,29 @@ export const BackgroundPattern = () => {
     const { width, height } = dimensions;
     const isHorizontal = width >= height;
     
-    let rows = 12;
-    let cols = 25;
-    let minSize = 10;
-    let maxSize = 60;
+    let deviceSettings = bgSettings.pc;
 
     if (width >= 1024) {
-      // PC Version
-      cols = 25;
-      rows = 12;
-      minSize = 10;
-      maxSize = 60;
+      deviceSettings = bgSettings.pc;
     } else if (width >= 768) {
-      // Tablet Version
-      if (isHorizontal) {
-        cols = 20;
-        rows = 10;
-      } else {
-        cols = 10;
-        rows = 20;
-      }
-      minSize = 10;
-      maxSize = 60;
+      deviceSettings = isHorizontal ? bgSettings.tabletLandscape : bgSettings.tabletPortrait;
     } else {
-      // Mobile Version
-      // User requested 5x20 for both vertical and horizontal mobile
-      cols = 5;
-      rows = 20;
-      minSize = 10;
-      maxSize = 40;
+      deviceSettings = isHorizontal ? bgSettings.mobileLandscape : bgSettings.mobilePortrait;
     }
+
+    const { rows, cols, minSize, maxSize } = deviceSettings;
 
     const items = [];
     
-    // Filter valid icons from Lucide
-    const availableIcons = bgIcons.map(name => (LucideIcons as any)[name]).filter(Boolean);
-    
-    // Fallback if no icons selected
-    const iconsToUse = availableIcons.length > 0 ? availableIcons : [LucideIcons.Heart];
+    // Filter to only valid Lucide icons and check if any are selected
+    const iconsToUse = bgIcons.filter(name => (LucideIcons as any)[name]);
+    if (iconsToUse.length === 0) return [];
     
     for (let r = 0; r < rows; r++) {
       for (let c = 0; c < cols; c++) {
-        const Icon = iconsToUse[Math.floor(Math.random() * iconsToUse.length)];
+        const iconName = iconsToUse[Math.floor(Math.random() * iconsToUse.length)];
+        const Icon = (LucideIcons as any)[iconName];
+        
         const size = minSize + Math.random() * (maxSize - minSize);
         const rotation = Math.random() * 360;
         
@@ -75,7 +56,7 @@ export const BackgroundPattern = () => {
       }
     }
     return items;
-  }, [bgIcons, dimensions]);
+  }, [bgIcons, dimensions, bgSettings]);
 
   return (
     <div className="fixed inset-0 pointer-events-none overflow-hidden z-[-1] bg-tg-bg">
@@ -108,7 +89,13 @@ export const BackgroundPattern = () => {
         </defs>
       </svg>
 
-      <div className="absolute inset-0 z-1">
+      <div 
+        className="absolute inset-0 z-1"
+        style={{ 
+          filter: 'blur(var(--bg-blur-intensity))',
+          willChange: 'filter'
+        }}
+      >
         {pattern.map((item, idx) => {
           const gradId = `icon-gradient-${idx % 4}`;
           return (
@@ -131,11 +118,6 @@ export const BackgroundPattern = () => {
         })}
       </div>
 
-      {/* Full screen blur overlay */}
-      <div 
-        className="absolute inset-0 backdrop-blur-[var(--bg-blur-intensity)] pointer-events-none"
-        style={{ backdropFilter: `blur(${bgBlurIntensity}px)` }}
-      />
     </div>
   );
 };

@@ -1,19 +1,31 @@
 import { GoogleGenAI } from "@google/genai";
 import { Xii, Message, User } from "../types/index";
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+export const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 export async function generateXiiResponse(
   xii: Xii,
   chatHistory: Message[],
   userMessage: string,
-  currentUser: User
+  currentUser: User,
+  allXiis: Xii[],
+  replyingTo?: Message
 ): Promise<string> {
-  // Last 5 messages from both self and user
-  const lastMessages = chatHistory.slice(-5);
+  // Last 10 messages for better context in groups
+  const lastMessages = chatHistory.slice(-10);
   const historyText = lastMessages
-    .map((m) => `${m.senderId === xii.id ? xii.firstName : currentUser.firstName}: ${m.text}`)
+    .map((m) => {
+      const sender = allXiis.find(x => x.id === m.senderId) || (m.senderId === currentUser.id ? currentUser : null);
+      const name = sender?.firstName || "Unknown";
+      return `${name}: ${m.text}${m.replyToName ? ` (Replying to ${m.replyToName})` : ""}`;
+    })
     .join("\n");
+
+  let replyContext = "";
+  if (replyingTo) {
+    const replier = allXiis.find(x => x.id === replyingTo.senderId) || (replyingTo.senderId === currentUser.id ? currentUser : null);
+    replyContext = `You are replying to a message from ${replier?.firstName || "someone"}: "${replyingTo.text}"`;
+  }
 
   const prompt = `
     You are ${xii.firstName} ${xii.lastName}, a virtual "ex" (xiis).
@@ -33,8 +45,10 @@ export async function generateXiiResponse(
     Gender: ${currentUser.gender}
     About User: ${currentUser.description || "No additional info provided."}
 
+    ${replyContext}
     User message: "${userMessage}"
-    Recent history (last 5 messages):
+    
+    Recent history (last 10 messages):
     ${historyText}
 
     Instructions:

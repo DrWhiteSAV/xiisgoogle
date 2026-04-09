@@ -15,7 +15,7 @@ export const Button: React.FC<ButtonProps> = ({
 }) => {
   const variants = {
     primary: "glass-effect hover:scale-[1.02] active:scale-95",
-    secondary: "bg-gray-100 dark:bg-gray-800 text-tg-hint hover:bg-gray-200 dark:hover:bg-gray-700",
+    secondary: "glass-effect text-tg-hint hover:bg-black/5 dark:hover:bg-white/5",
     ghost: "bg-transparent hover:bg-black/5 dark:hover:bg-white/5 text-tg-text",
     danger: "bg-red-500/10 text-red-500 hover:bg-red-500/20",
   };

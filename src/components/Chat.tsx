@@ -1,11 +1,11 @@
-import { Search, Menu, MoreVertical, Send, Mic, Paperclip, Smile, Share2, Reply, MessageSquare, Settings, X, Plus } from 'lucide-react';
-import { useState, useRef, useEffect, useMemo } from 'react';
+import { Search, Menu, MoreVertical, Send, Mic, Paperclip, Smile, Reply, MessageSquare, Settings, X, Plus, Users, ArrowLeft } from 'lucide-react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStore } from '../store';
 import { cn } from '../lib/utils';
 import { Message, Chat, Xii } from '../types/index';
 import { format } from 'date-fns';
-import { generateXiiResponse } from '../services/geminiService';
+import { generateXiiResponse, ai } from '../services/geminiService';
 import { EMOJI_LIST } from '../config/constants';
 import { Header } from './ui/Header';
 import { Button } from './ui/Button';
@@ -15,9 +15,7 @@ export const ChatList = ({ onSelectChat, activeChatId }: { onSelectChat: (id: st
   const { chats, xiis, createGroupChat } = useStore();
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
-  const [showGroupCreate, setShowGroupCreate] = useState(false);
-  const [selectedForGroup, setSelectedForGroup] = useState<string[]>([]);
-  const [groupName, setGroupName] = useState('');
+  const [showPlusMenu, setShowPlusMenu] = useState(false);
 
   const filteredChats = useMemo(() => {
     return chats.filter(chat => 
@@ -26,41 +24,60 @@ export const ChatList = ({ onSelectChat, activeChatId }: { onSelectChat: (id: st
     );
   }, [chats, searchQuery]);
 
-  const handleCreateGroup = () => {
-    if (groupName && selectedForGroup.length > 0) {
-      createGroupChat(groupName, selectedForGroup);
-      setShowGroupCreate(false);
-      setGroupName('');
-      setSelectedForGroup([]);
-    }
-  };
-
   return (
-    <div className="flex flex-col h-full bg-transparent border-r border-gray-200 dark:border-gray-800 w-full md:w-80 lg:w-96 glass-effect chat-list-bg relative overflow-hidden">
+    <div className="flex flex-col h-full bg-transparent w-full md:w-80 lg:w-96 relative overflow-hidden">
       {/* Background Layers */}
-      <div className="absolute inset-0 bg-tg-chat-bg opacity-10 dark:opacity-0 z-0" />
-      <div className="absolute inset-0 flex items-center justify-center z-1 pointer-events-none opacity-20">
+      <div className="absolute inset-0 flex items-center justify-center z-0 pointer-events-none opacity-10">
         <img src="https://i.ibb.co/8DVMSjvq/xiislogofull.png" alt="Logo" className="w-64 h-64 object-contain" />
       </div>
 
-      <div className="p-4 flex flex-col gap-4 relative z-10">
-        <div className="flex items-center gap-4">
-          <Menu className="text-gray-500 cursor-pointer" onClick={() => navigate('/profile')} />
-          <Input 
-            placeholder="Поиск" 
-            className="flex-1"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-          <Plus 
-            className="text-tg-light-blue cursor-pointer hover:scale-110 transition-transform block" 
-            size={24} 
-            onClick={() => setShowGroupCreate(true)}
-          />
+      <div className="p-4 flex flex-col gap-4 relative z-20">
+        <div className="flex items-center gap-3">
+          <div className="flex-1 relative">
+            <Input 
+              placeholder="Поиск" 
+              className="w-full pl-10 bg-white/10 dark:bg-black/10 border-white/20"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-tg-hint" size={18} />
+          </div>
+          <div className="relative">
+            <Plus 
+              className="text-tg-light-blue cursor-pointer hover:scale-110 transition-transform" 
+              size={28} 
+              onClick={() => setShowPlusMenu(!showPlusMenu)}
+            />
+            
+            {showPlusMenu && (
+              <div className="absolute right-0 mt-2 w-56 rounded-2xl shadow-2xl z-[100] p-2 glass-effect">
+                <div 
+                  className="flex items-center gap-3 p-3 hover:bg-black/5 dark:hover:bg-white/5 rounded-xl cursor-pointer transition-colors"
+                  onClick={() => {
+                    navigate('/creategroup');
+                    setShowPlusMenu(false);
+                  }}
+                >
+                  <Users size={18} className="text-tg-light-blue" />
+                  <span className="text-sm font-medium">Создать группу</span>
+                </div>
+                <div 
+                  className="flex items-center gap-3 p-3 hover:bg-black/5 dark:hover:bg-white/5 rounded-xl cursor-pointer transition-colors"
+                  onClick={() => {
+                    navigate('/createxiis');
+                    setShowPlusMenu(false);
+                  }}
+                >
+                  <Plus size={18} className="text-tg-light-blue" />
+                  <span className="text-sm font-medium">Добавить xiis</span>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
       
-      <div className="flex-1 overflow-y-auto relative z-10">
+      <div className="flex-1 overflow-y-auto relative z-10 pb-24 md:pb-0">
         {filteredChats.map((chat) => {
           const lastMsg = chat.lastMessage;
           const xii = xiis.find(x => `private-${x.id}` === chat.id);
@@ -71,22 +88,26 @@ export const ChatList = ({ onSelectChat, activeChatId }: { onSelectChat: (id: st
               key={chat.id}
               onClick={() => onSelectChat(chat.id)}
               className={cn(
-                "flex items-center gap-3 p-3 cursor-pointer transition-colors border-b border-gray-100/10 dark:border-gray-800/10 backdrop-blur-[2px] hover:bg-white/20 dark:hover:bg-white/5",
-                activeChatId === chat.id && "bg-white/30 dark:bg-white/10",
+                "flex items-center gap-3 p-3 cursor-pointer transition-colors border-b border-white/5 backdrop-blur-[1px] hover:bg-white/10 dark:hover:bg-white/5",
+                activeChatId === chat.id && "bg-white/20 dark:bg-white/10",
                 isBanned && "opacity-60"
               )}
             >
-              <div className="w-12 h-12 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center overflow-hidden shrink-0">
-                {chat.avatar.startsWith('http') ? (
+              <div 
+                className="w-12 h-12 rounded-full flex items-center justify-center overflow-hidden shrink-0"
+                style={{ backgroundColor: `rgba(var(--theme-color-rgb), 0.1)` }}
+              >
+                {chat.avatar && chat.avatar.startsWith('http') ? (
                   <img src={chat.avatar} alt={chat.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                 ) : (
-                  <span className="text-2xl">{chat.avatar}</span>
+                  <img src="https://i.ibb.co/Fqzm0ckJ/xiislogo.png" alt={chat.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                 )}
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex justify-between items-baseline">
                   <h4 className="font-semibold text-sm truncate flex items-center gap-2">
-                    {chat.name}
+                    {chat.id === 'channel-news' ? 'Стенка БывшИИ' : chat.name}
+                    {xii && <span className="text-[10px] text-tg-hint font-mono">@{xii.username}</span>}
                     {isBanned && <span className="text-[8px] bg-red-500 text-white px-1 rounded uppercase">Бан</span>}
                   </h4>
                   {lastMsg && <span className="text-[10px] text-tg-hint shrink-0">{format(lastMsg.timestamp, 'HH:mm')}</span>}
@@ -105,69 +126,6 @@ export const ChatList = ({ onSelectChat, activeChatId }: { onSelectChat: (id: st
         })}
       </div>
 
-      {/* Group Creation Modal */}
-      {showGroupCreate && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-          <div className="bg-tg-bg w-full max-w-md rounded-3xl p-6 glass-effect">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-xl font-bold">Создать группу</h2>
-              <X className="cursor-pointer" onClick={() => setShowGroupCreate(false)} />
-            </div>
-            <Input 
-              placeholder="Название группы" 
-              className="mb-4"
-              value={groupName}
-              onChange={(e) => setGroupName(e.target.value)}
-            />
-            <div className="max-h-60 overflow-y-auto mb-6 space-y-2">
-              {xiis.map(xii => (
-                <div 
-                  key={xii.id} 
-                  className={cn(
-                    "flex items-center gap-3 p-2 rounded-xl cursor-pointer transition-colors",
-                    selectedForGroup.includes(xii.id) ? "bg-tg-light-blue/20" : "hover:bg-gray-100 dark:hover:bg-gray-800"
-                  )}
-                  onClick={() => {
-                    if (selectedForGroup.includes(xii.id)) {
-                      setSelectedForGroup(selectedForGroup.filter(id => id !== xii.id));
-                    } else {
-                      setSelectedForGroup([...selectedForGroup, xii.id]);
-                    }
-                  }}
-                >
-                  <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center overflow-hidden">
-                    {xii.avatar.startsWith('http') ? (
-                      <img src={xii.avatar} alt={xii.firstName} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                    ) : (
-                      <span className="text-xl">{xii.avatar}</span>
-                    )}
-                  </div>
-                  <span className="text-sm font-medium">{xii.firstName} {xii.lastName}</span>
-                </div>
-              ))}
-            </div>
-            <Button 
-              onClick={handleCreateGroup}
-              disabled={!groupName || selectedForGroup.length === 0}
-              className="w-full py-3 font-bold"
-            >
-              Создать
-            </Button>
-          </div>
-        </div>
-      )}
-
-      {/* Bottom Navigation for Mobile */}
-      <div className="md:hidden flex justify-around p-3 border-t border-gray-200 dark:border-gray-800 bg-tg-bg">
-        <div className="flex flex-col items-center gap-1 text-tg-light-blue cursor-pointer" onClick={() => navigate('/chats')}>
-          <MessageSquare size={20} />
-          <span className="text-[10px]">Чаты</span>
-        </div>
-        <div className="flex flex-col items-center gap-1 text-tg-hint cursor-pointer" onClick={() => navigate('/profile')}>
-          <Settings size={20} />
-          <span className="text-[10px]">Настройки</span>
-        </div>
-      </div>
     </div>
   );
 };
@@ -180,13 +138,21 @@ export const ChatWindow = ({ chatId, onBack }: { chatId: string, onBack?: () => 
   const [activeMessageId, setActiveMessageId] = useState<string | null>(null);
   const [chatSearch, setChatSearch] = useState('');
   const [showSearch, setShowSearch] = useState(false);
-  const [showParticipants, setShowParticipants] = useState(false);
-  const [showChannelInfo, setShowChannelInfo] = useState(false);
   
   // New states for Reply and Share
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
-  const [sharingMessage, setSharingMessage] = useState<Message | null>(null);
-  const [isForwarding, setIsForwarding] = useState(false);
+  const [showMentions, setShowMentions] = useState(false);
+  const [mentionSearch, setMentionSearch] = useState('');
+  const [typingXii, setTypingXii] = useState<string | null>(null); // Name of Xii typing
+  const [streamingMessageId, setStreamingMessageId] = useState<string | null>(null);
+  const [streamingText, setStreamingText] = useState<Record<string, string>>({});
+
+  // Click outside to clear active message
+  useEffect(() => {
+    const handleClickOutside = () => setActiveMessageId(null);
+    window.addEventListener('click', handleClickOutside);
+    return () => window.removeEventListener('click', handleClickOutside);
+  }, []);
   
   const chat = chats.find(c => c.id === chatId);
   const xii = xiis.find(x => `private-${x.id}` === chatId);
@@ -218,6 +184,51 @@ export const ChatWindow = ({ chatId, onBack }: { chatId: string, onBack?: () => 
     }
   }, [inputText]);
 
+  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const value = e.target.value;
+    setInputText(value);
+
+    const cursorPosition = e.target.selectionStart;
+    const textBeforeCursor = value.substring(0, cursorPosition);
+    const lastAtSymbol = textBeforeCursor.lastIndexOf('@');
+
+    if (lastAtSymbol !== -1) {
+      const searchPart = textBeforeCursor.substring(lastAtSymbol + 1);
+      if (!searchPart.includes(' ')) {
+        setMentionSearch(searchPart);
+        setShowMentions(true);
+        return;
+      }
+    }
+    setShowMentions(false);
+  };
+
+  const handleSelectMention = (participant: any) => {
+    const cursorPosition = textareaRef.current?.selectionStart || inputText.length;
+    const textBeforeCursor = inputText.substring(0, cursorPosition);
+    const lastAtSymbol = textBeforeCursor.lastIndexOf('@');
+    
+    const textBeforeAt = inputText.substring(0, lastAtSymbol);
+    const textAfterMention = inputText.substring(cursorPosition);
+    
+    setInputText(`${textBeforeAt}@${participant.username} ${textAfterMention}`);
+    setShowMentions(false);
+
+    // "автоматический ответ на последнее сообщение"
+    const lastMsg = chatMessages[chatMessages.length - 1];
+    if (lastMsg) {
+      setReplyingTo(lastMsg);
+    }
+    
+    setTimeout(() => {
+      if (textareaRef.current) {
+        textareaRef.current.focus();
+        const newPos = lastAtSymbol + participant.username.length + 2;
+        textareaRef.current.setSelectionRange(newPos, newPos);
+      }
+    }, 0);
+  };
+
   const handleSend = async () => {
     if (!inputText.trim() || !currentUser || isBanned) return;
 
@@ -229,9 +240,60 @@ export const ChatWindow = ({ chatId, onBack }: { chatId: string, onBack?: () => 
       replyToId: replyingTo?.id,
     };
 
+    const currentInput = inputText;
+    const currentReplyTo = replyingTo;
+
     addMessage(chatId, userMsg);
     setInputText('');
     setReplyingTo(null);
+
+    const handleXiiResponse = async (target: any, isMention: boolean = false) => {
+      setTypingXii(target.firstName);
+      try {
+        const responseText = await generateXiiResponse(target, messages[chatId] || [], currentInput, currentUser, xiis, currentReplyTo || undefined);
+        setTypingXii(null);
+
+        let replyToName = '';
+        if (isMention || currentReplyTo) {
+          const replier = xiis.find(x => x.id === currentReplyTo?.senderId) || (currentReplyTo?.senderId === currentUser.id ? currentUser : null);
+          replyToName = replier?.firstName || (isMention ? currentUser.firstName : '');
+        }
+
+        const xiiMsgId = (Date.now() + 1).toString();
+        const xiiMsg: Message = {
+          id: xiiMsgId,
+          senderId: target.id,
+          text: '', // Start empty for streaming
+          timestamp: Date.now(),
+          replyToId: currentReplyTo?.id || (isMention ? userMsg.id : undefined),
+          replyToName: replyToName || undefined
+        };
+
+        addMessage(chatId, xiiMsg);
+        setStreamingMessageId(xiiMsgId);
+        
+        // Stream the text
+        let currentText = '';
+        const chars = Array.from(responseText);
+        for (let i = 0; i < chars.length; i++) {
+          currentText += chars[i];
+          setStreamingText(prev => ({ ...prev, [xiiMsgId]: currentText }));
+          await new Promise(resolve => setTimeout(resolve, 50)); // 20 chars per second (1000ms / 20 = 50ms)
+        }
+        
+        // Finalize message in store
+        useStore.getState().updateMessageText(chatId, xiiMsgId, responseText);
+        setStreamingMessageId(null);
+        setStreamingText(prev => {
+          const next = { ...prev };
+          delete next[xiiMsgId];
+          return next;
+        });
+      } catch (error) {
+        setTypingXii(null);
+        console.error("Xii response error:", error);
+      }
+    };
 
     // Logic for Xii response
     if (chat?.type === 'private') {
@@ -250,178 +312,159 @@ export const ChatWindow = ({ chatId, onBack }: { chatId: string, onBack?: () => 
         }
 
         if (consecutiveXiiCount < 3) {
-          const responseText = await generateXiiResponse(xii, allMessages, inputText, currentUser);
-          const xiiMsg: Message = {
-            id: (Date.now() + 1).toString(),
-            senderId: xii.id,
-            text: responseText,
-            timestamp: Date.now(),
-          };
-          setTimeout(() => addMessage(chatId, xiiMsg), 1000);
+          setTimeout(() => handleXiiResponse(xii), 1000);
         }
       }
     } else if (chat?.type === 'group') {
       // Handle group chat logic (mentions, etc.)
       const mentioned = inputText.includes('@');
+      let targetXii: any = null;
+
       if (mentioned) {
         const handle = inputText.split('@')[1]?.split(' ')[0];
-        const xii = xiis.find(x => x.username === handle);
-        if (xii && !xii.isBanned && currentUser) {
-           const responseText = await generateXiiResponse(xii, messages[chatId] || [], inputText, currentUser);
-           const xiiMsg: Message = {
-            id: (Date.now() + 1).toString(),
-            senderId: xii.id,
-            text: responseText,
-            timestamp: Date.now(),
-          };
-          setTimeout(() => addMessage(chatId, xiiMsg), 1500);
-        }
+        targetXii = xiis.find(x => x.username === handle);
+      } else if (replyingTo) {
+        // If user replies to a Xii message, that Xii should respond
+        targetXii = xiis.find(x => x.id === replyingTo.senderId);
       }
+
+      if (targetXii && !targetXii.isBanned && currentUser) {
+        setTimeout(() => handleXiiResponse(targetXii, mentioned), 1500);
+      }
+    } else if (chat?.type === 'channel') {
+      // AI Moderation for the Wall (Стенка)
+      const isUnacceptable = async (text: string) => {
+        // Simple link check first
+        const linkRegex = /https?:\/\/[^\s]+|www\.[^\s]+|[a-z0-9]+\.[a-z]{2,}/gi;
+        if (linkRegex.test(text)) return true;
+        
+        // AI check for unacceptable content
+        const prompt = `Проанализируй это сообщение для публичной "Стенки", где может писать любой пользователь. 
+        Является ли оно неприемлемым (оскорбления, спам, токсичность, мат или содержит ссылки)? 
+        Сообщение: "${text}"
+        Ответь ТОЛЬКО "YES" или "NO".`;
+        
+        try {
+          const response = await ai.models.generateContent({
+            model: "gemini-3-flash-preview",
+            contents: prompt,
+          });
+          return response.text?.trim().toUpperCase() === "YES";
+        } catch (e) {
+          console.error("Moderation error:", e);
+          return false;
+        }
+      };
+
+      const checkModeration = async () => {
+        if (await isUnacceptable(currentInput)) {
+          // Delete the message (remove from store)
+          useStore.getState().deleteMessage(chatId, userMsg.id);
+        }
+      };
+      checkModeration();
     }
-  };
-
-  const handleForward = (targetChatId: string) => {
-    if (!sharingMessage || !currentUser) return;
-    
-    setIsForwarding(true);
-    
-    const forwardedMsg: Message = {
-      id: `fwd-${Date.now()}`,
-      senderId: currentUser.id,
-      text: sharingMessage.text,
-      timestamp: Date.now(),
-      forwardedFromId: sharingMessage.senderId,
-    };
-
-    // Simulate process
-    setTimeout(() => {
-      addMessage(targetChatId, forwardedMsg);
-      setIsForwarding(false);
-      setSharingMessage(null);
-    }, 1000);
   };
 
   const handleHeaderClick = () => {
     if (chat?.type === 'private') {
       const xiiId = chat.participants.find(id => id !== currentUser?.id);
       if (xiiId) {
-        navigate(`/profile/${xiiId}`);
+        navigate(`/settings/${xiiId}`);
       }
     } else if (chat?.type === 'group') {
-      setShowParticipants(!showParticipants);
+      navigate(`/chats/${chat.id}/group-info`);
     } else if (chat?.type === 'channel') {
-      setShowChannelInfo(true);
+      // Navigate to channel info page instead of showing modal
+      navigate(`/chats/${chat.id}/info`);
     }
   };
 
   if (!chat) return <div className="flex-1 flex items-center justify-center text-gray-400">Выберите чат</div>;
 
   return (
-    <div className="flex-1 h-full bg-transparent tg-chat-bg relative overflow-y-auto scroll-smooth" ref={scrollRef}>
-      {/* Channel Info Modal */}
-      {showChannelInfo && (
-        <div className="fixed inset-0 bg-black/60 z-[70] flex items-center justify-center p-4 backdrop-blur-md">
-          <div className="bg-tg-bg w-full max-w-md rounded-[2.5rem] p-8 glass-effect shadow-2xl border border-white/20 flex flex-col items-center text-center">
-            <div className="flex justify-between w-full mb-6">
-              <h3 className="font-bold text-xl">О канале</h3>
-              <X className="cursor-pointer" onClick={() => setShowChannelInfo(false)} />
-            </div>
-            <div className="w-32 h-32 rounded-3xl overflow-hidden shadow-2xl mb-6 ring-4 ring-white/20">
-              <img src="https://i.ibb.co/8DVMSjvq/xiislogofull.png" alt="Channel Logo" className="w-full h-full object-cover" />
-            </div>
-            <h2 className="text-2xl font-bold mb-2">{chat.name}</h2>
-            <p className="text-tg-hint text-sm mb-6 leading-relaxed">
-              {chat.description || 'Официальный канал БывшИИ. Все новости и обновления здесь.'}
-            </p>
-            <button 
-              onClick={() => setShowChannelInfo(false)}
-              className="w-full py-4 bg-tg-light-blue text-white rounded-2xl font-bold shadow-lg shadow-blue-500/30 hover:bg-tg-blue transition-colors"
-            >
-              Закрыть
-            </button>
+    <div className="flex-1 h-full w-full bg-transparent tg-chat-bg relative flex flex-col overflow-hidden">
+      {/* Floating Header Blocks */}
+      <div className="absolute top-0 left-0 right-0 p-3 flex items-center gap-2 z-40 pointer-events-none">
+        {/* Block 1: Back Arrow */}
+        {onBack && (
+          <div 
+            onClick={onBack}
+            className="w-11 h-11 rounded-full glass-effect flex items-center justify-center shrink-0 pointer-events-auto cursor-pointer shadow-lg hover:scale-105 transition-transform active:scale-95"
+          >
+            <ArrowLeft size={20} className="text-tg-hint" />
+          </div>
+        )}
+
+        {/* Block 2: Avatar */}
+        <div 
+          onClick={handleHeaderClick}
+          className="w-11 h-11 rounded-full glass-effect flex items-center justify-center shrink-0 pointer-events-auto cursor-pointer shadow-lg hover:scale-105 transition-transform active:scale-95 overflow-hidden"
+        >
+          {chat.avatar && chat.avatar.startsWith('http') ? (
+            <img src={chat.avatar} alt={chat.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+          ) : (
+            <img src="https://i.ibb.co/Fqzm0ckJ/xiislogo.png" alt={chat.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+          )}
+        </div>
+
+        {/* Block 3: Name & Subtitle */}
+        <div 
+          onClick={handleHeaderClick}
+          className="flex-1 glass-effect rounded-2xl px-4 py-2 shadow-lg pointer-events-auto cursor-pointer min-w-0 flex flex-col justify-center h-11"
+        >
+          <div className="text-sm font-bold truncate leading-tight flex items-center gap-2">
+            {chat.id === 'channel-news' ? 'Стенка БывшИИ' : chat.name}
+            {xii && <span className="text-[10px] opacity-60 font-mono">@{xii.username}</span>}
+          </div>
+          <div className="text-[10px] text-tg-hint truncate leading-tight">
+            {chat.type === 'channel' ? 'Стенка' : chat.type === 'group' ? 'Чат' : isBanned ? 'Заблокирован' : 'в сети'}
           </div>
         </div>
-      )}
-      {/* Header */}
-      <Header 
-        title={chat.name}
-        subtitle={chat.type === 'channel' ? 'Канал' : isBanned ? 'Заблокирован' : 'в сети'}
-        showBack={!!onBack}
-        leftElement={
-          <div 
-            className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center overflow-hidden cursor-pointer" 
-            onClick={handleHeaderClick}
-          >
-            {chat.avatar.startsWith('http') ? (
-              <img src={chat.avatar} alt={chat.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-            ) : (
-              <span className="text-xl">{chat.avatar}</span>
-            )}
-          </div>
-        }
-        rightElement={
-          <div className="flex items-center gap-4 text-gray-500">
-            {showSearch ? (
-              <div className="flex items-center bg-white/50 dark:bg-gray-800 rounded-full px-3 py-1 input-glass">
-                <input 
-                  autoFocus
-                  type="text" 
-                  placeholder="Поиск в чате" 
-                  className="bg-transparent outline-none text-xs w-32 md:w-48"
-                  value={chatSearch}
-                  onChange={(e) => setChatSearch(e.target.value)}
-                />
-                <X size={14} className="cursor-pointer ml-2" onClick={() => { setShowSearch(false); setChatSearch(''); }} />
-              </div>
-            ) : (
-              <Search size={20} className="cursor-pointer" onClick={() => setShowSearch(true)} />
-            )}
-            <MoreVertical size={20} className="cursor-pointer" onClick={handleHeaderClick} />
-          </div>
-        }
-      />
 
-      {/* Participants List (for group chats) */}
-      {showParticipants && chat.type === 'group' && (
-        <div className="absolute top-20 right-4 w-64 bg-tg-bg rounded-3xl shadow-2xl z-20 glass-effect p-4 max-h-80 overflow-y-auto">
-          <h4 className="text-sm font-bold mb-3 border-b pb-2">Участники</h4>
-          <div className="space-y-3">
-            {chat.participants.map(pid => {
-              const p = xiis.find(x => x.id === pid) || (pid === currentUser?.id ? currentUser : null);
-              if (!p) return null;
-              return (
-                <div key={pid} className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2 overflow-hidden">
-                    <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center shrink-0 overflow-hidden">
-                      {p.avatar.startsWith('http') ? <img src={p.avatar} className="w-full h-full object-cover" /> : <span>{p.avatar}</span>}
-                    </div>
-                    <span className="text-xs truncate">{p.firstName} {p.lastName}</span>
-                  </div>
-                  {pid !== currentUser?.id && (
-                    <button 
-                      onClick={() => removeXiiFromGroup(chat.id, pid)}
-                      className="text-[10px] text-red-500 hover:underline"
-                    >
-                      Удалить
-                    </button>
-                  )}
-                </div>
-              );
-            })}
-          </div>
+        {/* Block 4: Search */}
+        <div 
+          onClick={(e) => { e.stopPropagation(); setShowSearch(!showSearch); }}
+          className={cn(
+            "w-11 h-11 rounded-full glass-effect flex items-center justify-center shrink-0 pointer-events-auto cursor-pointer shadow-lg hover:scale-105 transition-transform active:scale-95",
+            showSearch && "text-tg-light-blue ring-2 ring-tg-light-blue"
+          )}
+        >
+          <Search size={20} className={showSearch ? "text-tg-light-blue" : "text-tg-hint"} />
+        </div>
+      </div>
+
+      {/* Search Bar below Header Blocks */}
+      {showSearch && (
+        <div className="absolute top-16 left-3 right-3 px-4 py-2 glass-effect rounded-2xl shadow-lg z-30 flex items-center gap-2 animate-in slide-in-from-top-2 duration-200">
+          <Search size={16} className="text-tg-hint shrink-0" />
+          <input 
+            autoFocus
+            type="text" 
+            placeholder="Поиск в чате" 
+            className="bg-transparent outline-none text-sm flex-1 py-1"
+            value={chatSearch}
+            onChange={(e) => setChatSearch(e.target.value)}
+          />
+          {chatSearch && (
+            <X 
+              size={16} 
+              className="cursor-pointer text-tg-hint hover:text-tg-text transition-colors" 
+              onClick={() => setChatSearch('')} 
+            />
+          )}
         </div>
       )}
 
       {/* Messages */}
       <div 
+        ref={scrollRef}
         className={cn(
-          "space-y-3",
-          chat.type === 'channel' ? "px-0" : "px-4",
-          "pt-2 pb-2" // Padding for messages
+          "flex-1 w-full overflow-y-auto scroll-smooth space-y-3 px-[5px] pt-2 pb-24"
         )}
       >
-        {/* Spacer to push messages below sticky header */}
-        <div className="h-2" />
+        {/* Spacer to push messages below floating header blocks */}
+        <div className="h-16" />
         
         {chatMessages.map((msg) => {
           const isOwn = msg.senderId === currentUser?.id;
@@ -431,110 +474,128 @@ export const ChatWindow = ({ chatId, onBack }: { chatId: string, onBack?: () => 
           
           const handleProfileClick = () => {
             if (sender) {
-              navigate(`/profile/${sender.id}`);
+              navigate(`/settings/${sender.id}`);
             }
           };
 
           const replyToMsg = chatMessages.find(m => m.id === msg.replyToId);
 
           return (
-            <div key={msg.id} className={cn("flex w-full items-start gap-2", (isOwn || isChannel) ? "justify-start" : "justify-start", isOwn && !isChannel && "justify-end")}>
-              <div 
-                onClick={() => setActiveMessageId(isActive ? null : msg.id)}
-                className={cn(
-                  "p-3 rounded-2xl shadow-sm relative group message-bubble transition-all duration-200",
-                  isOwn ? "message-bubble-own rounded-tr-none" : "message-bubble-other rounded-tl-none",
-                  isChannel ? "channel-post ml-0" : "private-chat-bubble",
-                  isActive && "ring-2 ring-tg-light-blue ring-offset-2 dark:ring-offset-black"
-                )}
-              >
-                {!isOwn && chat.type !== 'private' && (
-                  <span 
-                    className="text-xs font-semibold text-blue-500 block mb-1 cursor-pointer hover:underline"
-                    onClick={(e) => { e.stopPropagation(); handleProfileClick(); }}
-                  >
-                    {sender?.firstName || msg.authorName}
-                  </span>
-                )}
-                
-                {replyToMsg && (
-                  <div className="mb-2 p-2 bg-black/5 dark:bg-white/5 border-l-2 border-tg-light-blue rounded text-xs opacity-80">
-                    <div className="font-bold text-[10px] text-tg-light-blue">
-                      {xiis.find(x => x.id === replyToMsg.senderId)?.firstName || (replyToMsg.senderId === currentUser?.id ? 'Вы' : 'Xii')}
-                    </div>
-                    <div className="truncate">{replyToMsg.text}</div>
-                  </div>
-                )}
-
-                {msg.forwardedFromId && (
-                  <div className="text-[10px] text-tg-light-blue italic mb-1">
-                    Переслано от {xiis.find(x => x.id === msg.forwardedFromId)?.firstName || 'Xii'}
-                  </div>
-                )}
-
-                <p className="text-sm pr-12 whitespace-pre-wrap">{msg.text}</p>
-                <div className="flex items-center gap-1 absolute bottom-1 right-2">
-                  <span className="text-[9px] opacity-60">
-                    {format(msg.timestamp, 'HH:mm')}
-                  </span>
-                  {isChannel && msg.authorName && (
-                    <span className="text-[9px] text-tg-light-blue font-medium ml-1 cursor-pointer hover:underline">
-                      @{msg.authorName.toLowerCase().replace(/\s/g, '_')}
+            <div 
+              key={msg.id} 
+              className={cn(
+                "flex w-full items-start", 
+                isOwn && !isChannel ? "justify-end" : "justify-start"
+              )}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className={cn(
+                "flex items-end gap-[5px] w-full max-w-full",
+                isOwn && !isChannel ? "flex-row-reverse" : "flex-row"
+              )}>
+                <div 
+                  onClick={() => setActiveMessageId(isActive ? null : msg.id)}
+                  className={cn(
+                    "p-3 rounded-2xl shadow-sm relative group message-bubble transition-all duration-200 min-w-0",
+                    isOwn ? "message-bubble-own rounded-tr-none" : "message-bubble-other rounded-tl-none",
+                    isChannel ? "channel-post" : "private-chat-bubble",
+                    isOwn && !isChannel ? "max-w-[85%]" : "max-w-[calc(100%-37px)]"
+                  )}
+                >
+                  {!isOwn && chat.type !== 'private' && (
+                    <span 
+                      className="text-xs font-semibold text-blue-500 block mb-1 cursor-pointer hover:underline"
+                      onClick={(e) => { e.stopPropagation(); handleProfileClick(); }}
+                    >
+                      {sender?.firstName || msg.authorName}
                     </span>
                   )}
+                  
+                  {msg.replyToName && (
+                    <div className="text-[10px] font-bold text-tg-light-blue mb-1">
+                      Ответ {msg.replyToName}
+                    </div>
+                  )}
+                  
+                  {replyToMsg && (
+                    <div className="mb-2 p-2 bg-black/5 dark:bg-white/5 border-l-2 border-tg-light-blue rounded text-xs opacity-80 w-full overflow-hidden min-w-0">
+                      <div className="font-bold text-[10px] text-tg-light-blue truncate">
+                        {xiis.find(x => x.id === replyToMsg.senderId)?.firstName || (replyToMsg.senderId === currentUser?.id ? 'Вы' : 'Xii')}
+                      </div>
+                      <div className="truncate w-full">{replyToMsg.text}</div>
+                    </div>
+                  )}
+
+                  {msg.forwardedFromId && (
+                    <div className="text-[10px] text-tg-light-blue italic mb-1">
+                      Переслано от {xiis.find(x => x.id === msg.forwardedFromId)?.firstName || 'Xii'}
+                    </div>
+                  )}
+
+                  <p className="text-sm pr-12 whitespace-pre-wrap break-words">
+                    {streamingText[msg.id] !== undefined ? streamingText[msg.id] : msg.text}
+                    {streamingMessageId === msg.id && <span className="inline-block w-1.5 h-4 ml-0.5 bg-tg-light-blue animate-pulse align-middle" />}
+                  </p>
+                  <div className="flex items-center gap-1 absolute bottom-1 right-2">
+                    <span className="text-[9px] opacity-60">
+                      {format(msg.timestamp, 'HH:mm')}
+                    </span>
+                    {isChannel && msg.authorName && (
+                      <span className="text-[9px] text-tg-light-blue font-medium ml-1 cursor-pointer hover:underline">
+                        @{msg.authorName.toLowerCase().replace(/\s/g, '_')}
+                      </span>
+                    )}
+                  </div>
                 </div>
                 
-                {/* Message Actions (Desktop/Private) */}
-                {!isChannel && (
-                  <div className={cn(
-                    "absolute top-0 flex flex-col gap-1 transition-opacity duration-200",
-                    (isOwn && !isChannel) ? "-left-10" : "-right-10",
-                    isActive ? "opacity-100" : "opacity-0 group-hover:opacity-100"
-                  )}>
-                    <button 
-                      onClick={(e) => { e.stopPropagation(); setReplyingTo(msg); }}
-                      className="p-1.5 bg-tg-bg rounded-full shadow-md hover:bg-gray-100 dark:hover:bg-gray-800 glass-effect"
-                    >
-                      <Reply size={14}/>
-                    </button>
-                    <button 
-                      onClick={(e) => { e.stopPropagation(); setSharingMessage(msg); }}
-                      className="p-1.5 bg-tg-bg rounded-full shadow-md hover:bg-gray-100 dark:hover:bg-gray-800 glass-effect"
-                    >
-                      <Share2 size={14}/>
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              {/* Message Actions (Channel - Right side) */}
-              {isChannel && (
-                <div className="w-[10%] flex flex-col gap-2 pt-2 shrink-0">
+                {/* Message Actions */}
+                <div className={cn(
+                  "flex flex-col gap-1 transition-opacity duration-200 shrink-0 w-8 items-center",
+                  isActive ? "opacity-100" : "opacity-0"
+                )}>
                   <button 
                     onClick={(e) => { e.stopPropagation(); setReplyingTo(msg); }}
-                    className="p-2 bg-white/10 rounded-full shadow-sm hover:bg-white/20 glass-effect flex items-center justify-center"
+                    className="p-1.5 bg-transparent rounded-full shadow-md hover:bg-black/5 dark:hover:bg-white/5 glass-effect"
                   >
-                    <Reply size={16} className="text-tg-light-blue" />
+                    <Reply size={14}/>
                   </button>
                   <button 
-                    onClick={(e) => { e.stopPropagation(); setSharingMessage(msg); }}
-                    className="p-2 bg-white/10 rounded-full shadow-sm hover:bg-white/20 glass-effect flex items-center justify-center"
+                    onClick={(e) => { 
+                      e.stopPropagation(); 
+                      navigate('/forward', { state: { message: msg } }); 
+                    }}
+                    className="p-1.5 bg-transparent rounded-full shadow-md hover:bg-black/5 dark:hover:bg-white/5 glass-effect"
                   >
-                    <Share2 size={16} className="text-tg-light-blue" />
+                    <Send size={14} className="-scale-x-100"/>
                   </button>
                 </div>
-              )}
-              {isChannel && <div className="w-[5%] shrink-0" />}
+              </div>
             </div>
           );
         })}
+
+        {/* Typing Indicator */}
+        {typingXii && (
+          <div className="flex justify-start px-2 animate-in fade-in slide-in-from-bottom-2 duration-300">
+            <div className="glass-effect px-4 py-2 rounded-2xl rounded-tl-none text-[11px] flex items-center gap-2 text-tg-hint shadow-lg">
+              <span className="font-bold text-tg-light-blue">{typingXii}</span>
+              <span>печатает</span>
+              <div className="flex gap-0.5">
+                <div className="w-1 h-1 bg-tg-light-blue rounded-full animate-bounce [animation-delay:-0.3s]" />
+                <div className="w-1 h-1 bg-tg-light-blue rounded-full animate-bounce [animation-delay:-0.15s]" />
+                <div className="w-1 h-1 bg-tg-light-blue rounded-full animate-bounce" />
+              </div>
+            </div>
+          </div>
+        )}
+        
         {/* Spacer to push messages above sticky input */}
         <div className="h-1" />
       </div>
 
       {/* Emoji Picker */}
       {showEmoji && (
-        <div className="absolute bottom-24 left-4 right-4 bg-white/40 dark:bg-black/40 rounded-3xl p-6 shadow-2xl z-50 glass-effect h-[400px] overflow-y-auto border-t-2 border-tg-light-blue/30">
+        <div className="absolute bottom-24 left-4 right-4 rounded-3xl p-6 shadow-2xl z-50 glass-effect h-[400px] overflow-y-auto border-t-2 border-tg-light-blue/30">
           <div className="flex justify-between items-center mb-6 sticky top-0 py-2 z-10">
             <h4 className="text-lg font-bold">Эмодзи</h4>
             <X size={24} className="cursor-pointer" onClick={() => setShowEmoji(false)} />
@@ -562,63 +623,65 @@ export const ChatWindow = ({ chatId, onBack }: { chatId: string, onBack?: () => 
         </div>
       )}
 
-      {/* Share Modal */}
-      {sharingMessage && (
-        <div className="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center p-4 backdrop-blur-md">
-          <div className="bg-tg-bg w-full max-w-sm rounded-[2.5rem] p-6 glass-effect shadow-2xl border border-white/20">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="font-bold">Переслать сообщение</h3>
-              <X className="cursor-pointer" onClick={() => setSharingMessage(null)} />
-            </div>
-            
-            {isForwarding ? (
-              <div className="py-10 flex flex-col items-center gap-4">
-                <div className="w-12 h-12 border-4 border-tg-light-blue border-t-transparent rounded-full animate-spin"></div>
-                <p className="text-sm font-medium">Пересылка...</p>
+      {/* Emoji Picker */}
+
+      {/* Input - 3 Separate Floating Blocks */}
+      <div className="absolute bottom-0 left-0 right-0 p-3 flex items-end gap-2 z-30 pointer-events-none">
+        {/* Block 1: Attachment */}
+        <div className="w-11 h-11 rounded-full glass-effect flex items-center justify-center shrink-0 pointer-events-auto cursor-pointer shadow-lg hover:scale-105 transition-transform active:scale-95">
+          <Paperclip className="text-tg-hint" size={20} />
+        </div>
+
+        {/* Block 2: Text Input */}
+        <div className="flex-1 flex flex-col gap-1 pointer-events-auto min-w-0">
+          {replyingTo && (
+            <div className="flex items-center justify-between px-3 py-1.5 glass-effect rounded-t-2xl border-b-0 animate-in slide-in-from-bottom-2 duration-200">
+              <div className="flex-1 min-w-0 border-l-2 border-tg-light-blue pl-2">
+                <div className="text-[10px] font-bold text-tg-light-blue truncate">Ответ на сообщение</div>
+                <div className="text-[10px] truncate opacity-70">{replyingTo.text}</div>
               </div>
-            ) : (
-              <div className="space-y-2 max-h-80 overflow-y-auto">
-                {chats.filter(c => c.id !== chatId).map(c => (
-                  <div 
-                    key={c.id}
-                    onClick={() => handleForward(c.id)}
-                    className="flex items-center gap-3 p-2 rounded-2xl hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer transition-colors"
-                  >
-                    <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center overflow-hidden">
-                      {c.avatar.startsWith('http') ? <img src={c.avatar} className="w-full h-full object-cover" /> : <span>{c.avatar}</span>}
-                    </div>
-                    <span className="text-sm font-medium truncate">{c.name}</span>
-                  </div>
-                ))}
+              <X size={14} className="cursor-pointer opacity-50 hover:opacity-100 ml-2" onClick={() => setReplyingTo(null)} />
+            </div>
+          )}
+          
+          <div className={cn(
+            "glass-effect flex items-end px-3 py-2 shadow-lg relative",
+            replyingTo ? "rounded-b-2xl rounded-t-none" : "rounded-[1.5rem]"
+          )}>
+            {/* Mention List */}
+            {showMentions && chat?.type === 'group' && (
+              <div className="absolute bottom-full left-0 right-0 mb-2 glass-effect rounded-2xl shadow-2xl z-50 max-h-48 overflow-y-auto border border-white/10 animate-in slide-in-from-bottom-2 duration-200 pointer-events-auto">
+                <div className="p-2 space-y-1">
+                  {chat.participants
+                    .map(id => xiis.find(x => x.id === id) || (id === currentUser?.id ? currentUser : null))
+                    .filter(p => p && (p.username.toLowerCase().includes(mentionSearch.toLowerCase()) || p.firstName.toLowerCase().includes(mentionSearch.toLowerCase())))
+                    .map(p => p && (
+                      <div 
+                        key={p.id}
+                        onClick={() => handleSelectMention(p)}
+                        className="flex items-center gap-3 p-2 hover:bg-white/10 rounded-xl cursor-pointer transition-colors"
+                      >
+                        <div className="w-8 h-8 rounded-full glass-effect flex items-center justify-center overflow-hidden shrink-0">
+                          {p.avatar.startsWith('http') ? <img src={p.avatar} className="w-full h-full object-cover" /> : <span>{p.avatar}</span>}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm font-bold truncate">{p.firstName} {p.lastName}</div>
+                          <div className="text-[10px] text-tg-hint truncate">@{p.username}</div>
+                        </div>
+                      </div>
+                    ))}
+                </div>
               </div>
             )}
-          </div>
-        </div>
-      )}
 
-      {/* Input */}
-      <div className="p-3 flex flex-col gap-2 glass-effect radial-round m-2 shadow-lg sticky bottom-0 z-30">
-        {replyingTo && (
-          <div className="flex items-center justify-between px-4 py-2 bg-black/5 dark:bg-white/5 rounded-xl border-l-4 border-tg-light-blue">
-            <div className="flex-1 min-w-0">
-              <div className="text-[10px] font-bold text-tg-light-blue">Ответ на сообщение</div>
-              <div className="text-xs truncate opacity-70">{replyingTo.text}</div>
-            </div>
-            <X size={16} className="cursor-pointer opacity-50 hover:opacity-100" onClick={() => setReplyingTo(null)} />
-          </div>
-        )}
-        
-        <div className="flex items-end gap-3">
-          <Paperclip className="text-gray-400 cursor-pointer hover:text-tg-light-blue transition-colors mb-2" />
-          <div className="flex-1 rounded-2xl flex items-end px-4 py-2 input-glass">
             <textarea 
               ref={textareaRef}
               rows={1}
               disabled={isBanned}
               placeholder={isBanned ? "Вы заблокировали этого xiis" : "Написать сообщение..."} 
-              className="bg-transparent outline-none w-full text-sm text-tg-text py-1 resize-none max-h-[300px]"
+              className="bg-transparent outline-none w-full text-sm text-tg-text py-1 resize-none max-h-[200px]"
               value={inputText}
-              onChange={(e) => setInputText(e.target.value)}
+              onChange={handleInputChange}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault();
@@ -627,19 +690,19 @@ export const ChatWindow = ({ chatId, onBack }: { chatId: string, onBack?: () => 
               }}
             />
             <Smile 
-              className={cn("text-gray-400 cursor-pointer ml-2 hover:text-tg-light-blue transition-colors mb-1", showEmoji && "text-tg-light-blue")} 
+              className={cn("text-tg-hint cursor-pointer ml-2 hover:text-tg-light-blue transition-colors mb-1 shrink-0", showEmoji && "text-tg-light-blue")} 
               onClick={() => setShowEmoji(!showEmoji)}
+              size={20}
             />
           </div>
-          {inputText.trim() ? (
-            <div onClick={handleSend} className="w-10 h-10 bg-tg-light-blue rounded-full flex items-center justify-center text-white cursor-pointer hover:bg-tg-blue transition-colors mb-1 shadow-md">
-              <Send size={20} />
-            </div>
-          ) : (
-            <div className="w-10 h-10 bg-tg-light-blue rounded-full flex items-center justify-center text-white cursor-pointer hover:bg-tg-blue transition-colors mb-1 shadow-md">
-              <Mic size={20} />
-            </div>
-          )}
+        </div>
+
+        {/* Block 3: Send/Mic */}
+        <div 
+          onClick={handleSend}
+          className="w-11 h-11 bg-tg-light-blue rounded-full flex items-center justify-center text-white shrink-0 pointer-events-auto cursor-pointer shadow-lg hover:bg-tg-blue transition-all active:scale-95"
+        >
+          {inputText.trim() ? <Send size={20} /> : <Mic size={20} />}
         </div>
       </div>
     </div>

@@ -10,7 +10,7 @@ export const ChatsPage = () => {
   return (
     <div className="flex h-full w-full overflow-hidden">
       {/* Sidebar for Desktop / List for Mobile */}
-      <div className={`${chatId ? 'hidden md:flex' : 'flex'} h-full`}>
+      <div className={`${chatId ? 'hidden md:flex' : 'flex'} h-full w-full md:w-auto`}>
         <ChatList 
           activeChatId={chatId} 
           onSelectChat={(id) => navigate(`/chats/${id}`)} 
@@ -18,7 +18,7 @@ export const ChatsPage = () => {
       </div>
 
       {/* Chat Window */}
-      <div className={`${chatId ? 'flex' : 'hidden md:flex'} flex-1 h-full`}>
+      <div className={`${chatId ? 'flex' : 'hidden md:flex'} flex-1 h-full w-full`}>
         {chatId ? (
           <ChatWindow 
             chatId={chatId} 

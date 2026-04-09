@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { AppState, User, Xii, Chat, Message, Gender, Theme, View } from './types/index';
+import { AppState, User, Xii, Chat, Message, Gender, Theme, View, BgSettings, BgDeviceSettings } from './types/index';
 import { STANDARD_XII_MESSAGES } from './config/constants';
 
 interface Store extends AppState {
@@ -9,6 +9,10 @@ interface Store extends AppState {
   updateXii: (xiiId: string, updates: Partial<Xii>) => void;
   addMessage: (chatId: string, message: Message) => void;
   createGroupChat: (name: string, participantIds: string[]) => void;
+  updateChat: (chatId: string, updates: Partial<Chat>) => void;
+  deleteChat: (chatId: string) => void;
+  deleteMessage: (chatId: string, messageId: string) => void;
+  addParticipantToChat: (chatId: string, participantId: string) => void;
   removeXiiFromGroup: (chatId: string, xiiId: string) => void;
   markAsRead: (chatId: string) => void;
   setTheme: (theme: Theme) => void;
@@ -16,7 +20,11 @@ interface Store extends AppState {
   setBlurIntensity: (intensity: number) => void;
   setBgBlurIntensity: (intensity: number) => void;
   setBgIcons: (icons: string[]) => void;
+  updateBgSettings: (device: keyof BgSettings, settings: Partial<BgDeviceSettings>) => void;
+  setGlassOpacity: (opacity: number) => void;
+  setGlassMix: (mix: number) => void;
   setView: (view: View, xiiId?: string) => void;
+  updateMessageText: (chatId: string, messageId: string, text: string) => void;
   logout: () => void;
   selectedXiiId: string | null;
 }
@@ -28,18 +36,27 @@ export const useStore = create<Store>()(
       xiis: [],
       theme: 'light',
       themeColor: '#3390ec', // Default Telegram blue
-      blurIntensity: 10, // Default blur
-      bgBlurIntensity: 2, // Default background blur
+      blurIntensity: 10, // Default blur percentage (10% of 10px = 1px)
+      bgBlurIntensity: 0, // Default background blur
       bgIcons: ['HeartCrack'],
+      glassOpacity: 10,
+      glassMix: 10,
+      bgSettings: {
+        pc: { cols: 25, rows: 12, minSize: 10, maxSize: 60 },
+        tabletPortrait: { cols: 10, rows: 20, minSize: 10, maxSize: 60 },
+        tabletLandscape: { cols: 20, rows: 10, minSize: 10, maxSize: 60 },
+        mobilePortrait: { cols: 5, rows: 20, minSize: 10, maxSize: 40 },
+        mobileLandscape: { cols: 5, rows: 20, minSize: 10, maxSize: 40 },
+      },
       currentView: 'chats',
       selectedXiiId: null,
       chats: [
         {
           id: 'channel-news',
           type: 'channel',
-          name: 'БывшИИ Новости',
+          name: 'Стенка БывшИИ',
           avatar: 'https://i.ibb.co/Fqzm0ckJ/xiislogo.png',
-          description: 'Официальный канал БывшИИ. Все новости и обновления здесь.',
+          description: 'Дуров вернул стенку! Здесь можно писать всё, что угодно. Но помните: наш ИИ-модератор не дремлет и зорко следит за порядком. Пишите креативно, а не токсично!',
           participants: [],
           unreadCount: 0,
         }
@@ -49,7 +66,7 @@ export const useStore = create<Store>()(
           {
             id: 'm1',
             senderId: 'admin',
-            text: 'Добро пожаловать в БывшИИ! Здесь вы можете создать своих xiis и общаться с ними.',
+            text: 'Стена возвращена! Пишите здесь всё, что накипело. Но будьте осторожны: наш ИИ проверяет каждое сообщение. Ссылки и гадости будут удалены моментально. Почувствуйте свободу (под присмотром)!',
             timestamp: Date.now(),
             authorName: 'Админ'
           }
@@ -63,7 +80,7 @@ export const useStore = create<Store>()(
         const newChat: Chat = {
           id: chatId,
           type: 'private',
-          name: `${xii.firstName} ${xii.lastName}`,
+          name: `${xii.firstName}${xii.lastName ? ' ' + xii.lastName : ''}`,
           avatar: xii.avatar,
           participants: [state.currentUser?.id || '', xii.id],
           unreadCount: 1,
@@ -71,7 +88,18 @@ export const useStore = create<Store>()(
         
         // Immediate first message from Xii
         const randomMsg = STANDARD_XII_MESSAGES[Math.floor(Math.random() * STANDARD_XII_MESSAGES.length)];
-        const processedMsg = randomMsg.replace(/{name}/g, state.currentUser?.firstName || 'друг');
+        const useName = Math.random() > 0.5;
+        const name = state.currentUser?.firstName || 'друг';
+        
+        let processedMsg = useName 
+          ? randomMsg.replace(/{name}/g, name)
+          : randomMsg.replace(/{name}[,!?]?\s*/g, '');
+        
+        // Clean up leading punctuation if name was at the start
+        processedMsg = processedMsg.replace(/^[,\s!]+/, '').trim();
+        // Capitalize first letter if it was lowercased after name removal
+        processedMsg = processedMsg.charAt(0).toUpperCase() + processedMsg.slice(1);
+
         const firstMsg: Message = {
           id: `first-${xii.id}`,
           senderId: xii.id,
@@ -80,7 +108,7 @@ export const useStore = create<Store>()(
         };
 
         return {
-          xiis: [...state.xiis, xii],
+          xiis: [...state.xiis, { ...xii, lastOnlinePing: Date.now() }],
           chats: [newChat, ...state.chats],
           messages: { ...state.messages, [chatId]: [firstMsg] },
         };
@@ -123,7 +151,7 @@ export const useStore = create<Store>()(
           id,
           type: 'group',
           name,
-          avatar: '👥',
+          avatar: 'https://i.ibb.co/Fqzm0ckJ/xiislogo.png',
           participants: [state.currentUser?.id || '', ...participantIds],
           unreadCount: 0,
         };
@@ -131,6 +159,36 @@ export const useStore = create<Store>()(
           chats: [newChat, ...state.chats],
         };
       }),
+
+      updateChat: (chatId, updates) => set((state) => ({
+        chats: state.chats.map(c => c.id === chatId ? { ...c, ...updates } : c)
+      })),
+
+      deleteChat: (chatId) => set((state) => {
+        const { [chatId]: _, ...remainingMessages } = state.messages;
+        return {
+          chats: state.chats.filter(c => c.id !== chatId),
+          messages: remainingMessages
+        };
+      }),
+
+      deleteMessage: (chatId, messageId) => set((state) => {
+        const chatMessages = state.messages[chatId] || [];
+        return {
+          messages: {
+            ...state.messages,
+            [chatId]: chatMessages.filter(m => m.id !== messageId)
+          }
+        };
+      }),
+
+      addParticipantToChat: (chatId, participantId) => set((state) => ({
+        chats: state.chats.map(chat => 
+          chat.id === chatId && !chat.participants.includes(participantId)
+            ? { ...chat, participants: [...chat.participants, participantId] }
+            : chat
+        )
+      })),
 
       removeXiiFromGroup: (chatId, xiiId) => set((state) => ({
         chats: state.chats.map(chat => 
@@ -149,7 +207,26 @@ export const useStore = create<Store>()(
       setBlurIntensity: (blurIntensity) => set({ blurIntensity }),
       setBgBlurIntensity: (bgBlurIntensity) => set({ bgBlurIntensity }),
       setBgIcons: (bgIcons) => set({ bgIcons }),
+      updateBgSettings: (device, settings) => set((state) => ({
+        bgSettings: {
+          ...state.bgSettings,
+          [device]: { ...state.bgSettings[device], ...settings }
+        }
+      })),
+      setGlassOpacity: (glassOpacity) => set({ glassOpacity }),
+      setGlassMix: (glassMix) => set({ glassMix }),
       setView: (view, xiiId) => set({ currentView: view, selectedXiiId: xiiId || null }),
+      
+      updateMessageText: (chatId, messageId, text) => set((state) => {
+        const chatMessages = state.messages[chatId] || [];
+        const updatedMessages = chatMessages.map(m => 
+          m.id === messageId ? { ...m, text } : m
+        );
+        return {
+          messages: { ...state.messages, [chatId]: updatedMessages }
+        };
+      }),
+
       logout: () => set({ 
         currentUser: null, 
         xiis: [], 
@@ -157,9 +234,9 @@ export const useStore = create<Store>()(
           {
             id: 'channel-news',
             type: 'channel',
-            name: 'БывшИИ Новости',
+            name: 'Стенка БывшИИ',
             avatar: 'https://i.ibb.co/Fqzm0ckJ/xiislogo.png',
-            description: 'Официальный канал БывшИИ. Все новости и обновления здесь.',
+            description: 'Дуров вернул стенку! Здесь можно писать всё, что угодно. Но помните: наш ИИ-модератор не дремлет и зорко следит за порядком. Пишите креативно, а не токсично!',
             participants: [],
             unreadCount: 0,
           }
@@ -169,14 +246,15 @@ export const useStore = create<Store>()(
             {
               id: 'm1',
               senderId: 'admin',
-              text: 'Добро пожаловать в БывшИИ! Здесь вы можете создать своих xiis и общаться с ними.',
+              text: 'Стена возвращена! Пишите здесь всё, что накипело. Но будьте осторожны: наш ИИ проверяет каждое сообщение. Ссылки и гадости будут удалены моментально. Почувствуйте свободу (под присмотром)!',
               timestamp: Date.now(),
               authorName: 'Админ'
             }
           ]
         }, 
         currentView: 'chats', 
-        selectedXiiId: null 
+        selectedXiiId: null,
+        bgIcons: ['HeartCrack']
       }),
     }),
     {
